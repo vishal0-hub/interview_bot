@@ -74,5 +74,5 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# OpenAI API Configuration
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+# Groq API Configuration
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')

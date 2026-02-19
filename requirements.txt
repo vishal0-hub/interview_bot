@@ -1,5 +1,5 @@
 django>=4.2
-openai
+groq
 PyPDF2
 python-docx
 python-dotenv

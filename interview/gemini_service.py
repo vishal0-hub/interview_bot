@@ -1,18 +1,18 @@
 import json
-from openai import OpenAI
+from groq import Groq
 from django.conf import settings
 
 
 def get_client():
-    """Initialize and return the OpenAI client."""
-    return OpenAI(api_key=settings.OPENAI_API_KEY)
+    """Initialize and return the Groq client."""
+    return Groq(api_key=settings.GROQ_API_KEY)
 
 
 def _chat(prompt, max_tokens=2000):
     """Helper to send a chat completion request."""
     client = get_client()
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only. No markdown, no explanation."},
             {"role": "user", "content": prompt},
@@ -33,7 +33,7 @@ def _chat(prompt, max_tokens=2000):
 
 def extract_skills(resume_text):
     """
-    Use OpenAI to extract technical skills from resume text.
+    Use Groq to extract technical skills from resume text.
     Returns a list of skill strings.
     """
     prompt = f"""Analyze the following resume and extract ALL technical skills mentioned.
@@ -69,7 +69,7 @@ JSON array of skills:"""
 
 def generate_questions(skills, num_questions=10):
     """
-    Use OpenAI to generate technical interview questions based on skills.
+    Use Groq to generate technical interview questions based on skills.
     Returns a list of dicts with 'question', 'skill', and 'difficulty'.
     """
     skills_str = ', '.join(skills[:15])  # Limit to top 15 skills
@@ -127,7 +127,7 @@ Generate {num_questions} questions:"""
 
 def evaluate_answer(question_text, answer_text, skill):
     """
-    Use OpenAI to evaluate a candidate's answer.
+    Use Groq to evaluate a candidate's answer.
     Returns a dict with 'score' (1-10) and 'evaluation' text.
     """
     prompt = f"""You are a technical interviewer evaluating a candidate's answer.
@@ -173,7 +173,7 @@ Example: {{"score": 7, "evaluation": "The candidate demonstrated good understand
 
 def generate_report(session):
     """
-    Use OpenAI to generate a comprehensive analysis report from all Q&A pairs.
+    Use Groq to generate a comprehensive analysis report from all Q&A pairs.
     Returns a dict with 'overall_score', 'report_text', and 'skill_scores'.
     """
     # Build Q&A summary
