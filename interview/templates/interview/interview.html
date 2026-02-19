@@ -1,0 +1,365 @@
+{% extends 'interview/base.html' %}
+{% load static %}
+
+{% block title %}Interview — InterviewAI{% endblock %}
+
+{% block content %}
+<div class="interview-page">
+    <div class="interview-header">
+        <h1 class="interview-title">Technical Interview</h1>
+        <p class="interview-candidate">{{ session.candidate_name|default:"Candidate" }}</p>
+        <div class="skills-tags">
+            {% for skill in session.skills %}
+            <span class="skill-tag">{{ skill }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="progress-container">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: {{ session.progress_percent }}%"></div>
+        </div>
+        <div class="progress-text">
+            <span id="progressText">Question <span id="currentQ">{{ session.current_question_index|add:1 }}</span> of {{
+                session.total_questions }}</span>
+            <span id="progressPercent">{{ session.progress_percent }}%</span>
+        </div>
+    </div>
+
+    <!-- Question Card -->
+    <div class="question-card glass-card" id="questionCard">
+        <div class="question-meta">
+            <span class="question-skill" id="questionSkill">Loading...</span>
+            <span class="question-difficulty" id="questionDifficulty">—</span>
+        </div>
+        <h2 class="question-text" id="questionText">Loading question...</h2>
+
+        <!-- Speaker button to replay the question -->
+        <button class="btn-voice btn-speak" id="speakBtn" title="Listen to question">
+            🔊 <span>Listen</span>
+        </button>
+
+        <div class="answer-section">
+            <div class="answer-input-wrapper">
+                <textarea class="answer-input" id="answerInput"
+                    placeholder="Type your answer or click the mic 🎤 to speak..." rows="6"></textarea>
+                <!-- Mic button for speech-to-text -->
+                <button class="btn-mic" id="micBtn" title="Click to speak your answer">
+                    <span class="mic-icon" id="micIcon">🎤</span>
+                    <span class="mic-pulse" id="micPulse"></span>
+                </button>
+            </div>
+            <div class="mic-status" id="micStatus" style="display: none;">
+                <span class="mic-status-dot"></span>
+                <span class="mic-status-text">Listening... Speak your answer</span>
+            </div>
+            <div class="answer-actions">
+                <span class="char-count" id="charCount">0 characters</span>
+                <button class="btn btn-primary" id="submitAnswer" disabled>
+                    <span class="btn-text">Submit Answer</span>
+                    <span class="btn-loader" style="display: none;">
+                        <span class="spinner"></span> Evaluating...
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Card (shown after answer) -->
+    <div class="feedback-card glass-card" id="feedbackCard" style="display: none;">
+        <div class="feedback-header">
+            <div class="feedback-score-circle" id="feedbackScoreCircle">
+                <span class="feedback-score-value" id="feedbackScore">0</span>
+                <span class="feedback-score-label">/10</span>
+            </div>
+        </div>
+        <p class="feedback-text" id="feedbackText"></p>
+        <button class="btn btn-primary" id="nextQuestion">
+            <span id="nextBtnText">Next Question →</span>
+        </button>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Generating your report...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SESSION_ID = {{ session.pk }};
+    let currentQuestionId = null;
+    let isRecording = false;
+    let recognition = null;
+
+    // DOM Elements
+    const questionText = document.getElementById('questionText');
+    const questionSkill = document.getElementById('questionSkill');
+    const questionDifficulty = document.getElementById('questionDifficulty');
+    const answerInput = document.getElementById('answerInput');
+    const submitBtn = document.getElementById('submitAnswer');
+    const charCount = document.getElementById('charCount');
+    const questionCard = document.getElementById('questionCard');
+    const feedbackCard = document.getElementById('feedbackCard');
+    const feedbackScore = document.getElementById('feedbackScore');
+    const feedbackScoreCircle = document.getElementById('feedbackScoreCircle');
+    const feedbackText = document.getElementById('feedbackText');
+    const nextBtn = document.getElementById('nextQuestion');
+    const nextBtnText = document.getElementById('nextBtnText');
+    const progressFill = document.getElementById('progressFill');
+    const progressPercent = document.getElementById('progressPercent');
+    const currentQ = document.getElementById('currentQ');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const speakBtn = document.getElementById('speakBtn');
+    const micBtn = document.getElementById('micBtn');
+    const micIcon = document.getElementById('micIcon');
+    const micPulse = document.getElementById('micPulse');
+    const micStatus = document.getElementById('micStatus');
+
+    // ==========================================
+    //  TEXT-TO-SPEECH — Read questions aloud
+    // ==========================================
+    function speakQuestion(text) {
+        if ('speechSynthesis' in window) {
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.95;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+
+            // Try to pick a good English voice
+            const voices = window.speechSynthesis.getVoices();
+            const englishVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) ||
+                voices.find(v => v.lang.startsWith('en'));
+            if (englishVoice) utterance.voice = englishVoice;
+
+            // Visual feedback while speaking
+            speakBtn.classList.add('speaking');
+            utterance.onend = () => speakBtn.classList.remove('speaking');
+            utterance.onerror = () => speakBtn.classList.remove('speaking');
+
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    // Ensure voices load (they load async in some browsers)
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = () => { };
+        window.speechSynthesis.getVoices();
+    }
+
+    // Speak button click
+    speakBtn.addEventListener('click', () => {
+        speakQuestion(questionText.textContent);
+    });
+
+    // ==========================================
+    //  SPEECH-TO-TEXT — Voice answers
+    // ==========================================
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        let finalTranscript = '';
+
+        recognition.onstart = () => {
+            isRecording = true;
+            micBtn.classList.add('recording');
+            micIcon.textContent = '⏹️';
+            micPulse.style.display = 'block';
+            micStatus.style.display = 'flex';
+        };
+
+        recognition.onresult = (event) => {
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript + ' ';
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            // Show in textarea (keep any previously typed text)
+            const existingText = answerInput.dataset.typedText || '';
+            answerInput.value = existingText + finalTranscript + interimTranscript;
+            updateCharCount();
+        };
+
+        recognition.onend = () => {
+            // Save final transcript and reset
+            if (isRecording) {
+                const existingText = answerInput.dataset.typedText || '';
+                answerInput.value = existingText + finalTranscript;
+                answerInput.dataset.typedText = answerInput.value;
+                finalTranscript = '';
+            }
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            micIcon.textContent = '🎤';
+            micPulse.style.display = 'none';
+            micStatus.style.display = 'none';
+            updateCharCount();
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            micIcon.textContent = '🎤';
+            micPulse.style.display = 'none';
+            micStatus.style.display = 'none';
+        };
+    } else {
+        // Browser doesn't support speech recognition
+        micBtn.style.display = 'none';
+    }
+
+    micBtn.addEventListener('click', () => {
+        if (!recognition) return;
+
+        if (isRecording) {
+            recognition.stop();
+        } else {
+            // Store current typed text before starting
+            answerInput.dataset.typedText = answerInput.value;
+            recognition.start();
+        }
+    });
+
+    // ==========================================
+    //  CORE INTERVIEW LOGIC
+    // ==========================================
+
+    function updateCharCount() {
+        const len = answerInput.value.trim().length;
+        charCount.textContent = len + ' characters';
+        submitBtn.disabled = len < 10;
+    }
+
+    // Load first question
+    loadQuestion();
+
+    // Character count
+    answerInput.addEventListener('input', () => {
+        answerInput.dataset.typedText = answerInput.value;
+        updateCharCount();
+    });
+
+    // Submit answer
+    submitBtn.addEventListener('click', submitAnswer);
+
+    // Next question
+    nextBtn.addEventListener('click', () => {
+        // Stop any ongoing speech
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        if (recognition && isRecording) recognition.stop();
+
+        feedbackCard.style.display = 'none';
+        questionCard.style.display = 'block';
+        answerInput.value = '';
+        answerInput.dataset.typedText = '';
+        charCount.textContent = '0 characters';
+        submitBtn.disabled = true;
+        loadQuestion();
+    });
+
+    async function loadQuestion() {
+        try {
+            const res = await fetch(`/interview/${SESSION_ID}/question/`);
+            const data = await res.json();
+
+            if (data.status === 'completed') {
+                loadingOverlay.style.display = 'flex';
+                window.location.href = data.redirect;
+                return;
+            }
+
+            currentQuestionId = data.question_id;
+            questionText.textContent = data.question_text;
+            questionSkill.textContent = data.skill;
+            questionDifficulty.textContent = data.difficulty.charAt(0).toUpperCase() + data.difficulty.slice(1);
+            questionDifficulty.className = 'question-difficulty diff-' + data.difficulty;
+            currentQ.textContent = data.question_number;
+            progressFill.style.width = data.progress + '%';
+            progressPercent.textContent = data.progress + '%';
+
+            // Animate card in
+            questionCard.classList.add('fade-in');
+            setTimeout(() => questionCard.classList.remove('fade-in'), 500);
+
+            // Auto-speak the question
+            setTimeout(() => speakQuestion(data.question_text), 600);
+
+            answerInput.focus();
+        } catch (err) {
+            questionText.textContent = 'Error loading question. Please refresh.';
+        }
+    }
+
+    async function submitAnswer() {
+        const answer = answerInput.value.trim();
+        if (answer.length < 10 || !currentQuestionId) return;
+
+        // Stop recording if active
+        if (recognition && isRecording) recognition.stop();
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoader = submitBtn.querySelector('.btn-loader');
+        btnText.style.display = 'none';
+        btnLoader.style.display = 'inline-flex';
+        submitBtn.disabled = true;
+
+        try {
+            const res = await fetch(`/interview/${SESSION_ID}/answer/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question_id: currentQuestionId,
+                    answer: answer,
+                }),
+            });
+            const data = await res.json();
+
+            if (data.status === 'ok') {
+                questionCard.style.display = 'none';
+                feedbackScore.textContent = data.score;
+                feedbackText.textContent = data.evaluation;
+
+                const score = data.score;
+                if (score >= 8) feedbackScoreCircle.className = 'feedback-score-circle score-high';
+                else if (score >= 5) feedbackScoreCircle.className = 'feedback-score-circle score-mid';
+                else feedbackScoreCircle.className = 'feedback-score-circle score-low';
+
+                if (data.is_last) {
+                    nextBtnText.textContent = 'View Report →';
+                }
+
+                feedbackCard.style.display = 'block';
+                feedbackCard.classList.add('fade-in');
+                setTimeout(() => feedbackCard.classList.remove('fade-in'), 500);
+
+                // Speak the evaluation feedback
+                speakQuestion(`Score: ${data.score} out of 10. ${data.evaluation}`);
+            } else {
+                alert(data.message || 'Error submitting answer.');
+            }
+        } catch (err) {
+            alert('Network error. Please try again.');
+        } finally {
+            btnText.style.display = 'inline';
+            btnLoader.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,160 @@
+{% extends 'interview/base.html' %}
+{% load static %}
+
+{% block title %}Report — InterviewAI{% endblock %}
+
+{% block content %}
+<div class="report-page">
+    <div class="report-header">
+        <h1 class="report-title">Interview Report</h1>
+        <p class="report-candidate">{{ session.candidate_name|default:"Candidate" }}</p>
+        <p class="report-date">{{ session.created_at|date:"F d, Y • h:i A" }}</p>
+    </div>
+
+    <!-- Overall Score -->
+    <div class="score-hero glass-card">
+        <div class="score-ring" id="scoreRing">
+            <svg viewBox="0 0 120 120">
+                <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+                <circle class="ring-fill" cx="60" cy="60" r="52" id="ringFill" stroke-dasharray="326.73"
+                    stroke-dashoffset="326.73"></circle>
+            </svg>
+            <div class="score-value">
+                <span class="score-number" id="scoreNumber">{{ session.overall_score|floatformat:0 }}</span>
+                <span class="score-unit">%</span>
+            </div>
+        </div>
+        {% if report.recommendation %}
+        <div class="recommendation recommendation-{{ report.recommendation|lower|cut:' ' }}">
+            {{ report.recommendation }}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Summary -->
+    {% if report.summary %}
+    <div class="report-section glass-card">
+        <h2 class="section-heading">📋 Summary</h2>
+        <p class="summary-text">{{ report.summary }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Strengths & Weaknesses -->
+    <div class="sw-grid">
+        {% if report.strengths %}
+        <div class="report-section glass-card">
+            <h2 class="section-heading">💪 Strengths</h2>
+            <ul class="sw-list strengths-list">
+                {% for strength in report.strengths %}
+                <li>{{ strength }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if report.weaknesses %}
+        <div class="report-section glass-card">
+            <h2 class="section-heading">📈 Areas for Improvement</h2>
+            <ul class="sw-list weaknesses-list">
+                {% for weakness in report.weaknesses %}
+                <li>{{ weakness }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Skill Scores -->
+    {% if report.skill_scores %}
+    <div class="report-section glass-card">
+        <h2 class="section-heading">🎯 Skill-wise Performance</h2>
+        <div class="skill-bars">
+            {% for skill, score in report.skill_scores.items %}
+            <div class="skill-bar-item">
+                <div class="skill-bar-header">
+                    <span class="skill-bar-name">{{ skill }}</span>
+                    <span class="skill-bar-score">{{ score|floatformat:0 }}%</span>
+                </div>
+                <div class="skill-bar-track">
+                    <div class="skill-bar-fill" style="width: 0%;" data-width="{{ score }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Detailed Feedback -->
+    {% if report.detailed_feedback %}
+    <div class="report-section glass-card">
+        <h2 class="section-heading">💡 Detailed Feedback</h2>
+        <p class="summary-text">{{ report.detailed_feedback }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Q&A Breakdown -->
+    <div class="report-section glass-card">
+        <h2 class="section-heading">📝 Question-by-Question Breakdown</h2>
+        <div class="qa-list">
+            {% for qa in questions_with_answers %}
+            <div class="qa-item">
+                <div class="qa-header">
+                    <span class="qa-number">Q{{ qa.question.order }}</span>
+                    <span class="qa-skill">{{ qa.question.skill_category }}</span>
+                    <span class="qa-difficulty diff-{{ qa.question.difficulty }}">{{ qa.question.difficulty|title
+                        }}</span>
+                    {% if qa.answer %}
+                    <span
+                        class="qa-score {% if qa.answer.score >= 8 %}score-high{% elif qa.answer.score >= 5 %}score-mid{% else %}score-low{% endif %}">
+                        {{ qa.answer.score }}/10
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="qa-question">{{ qa.question.question_text }}</div>
+                {% if qa.answer %}
+                <div class="qa-answer">
+                    <strong>Your Answer:</strong> {{ qa.answer.answer_text }}
+                </div>
+                <div class="qa-evaluation">
+                    <strong>Evaluation:</strong> {{ qa.answer.evaluation }}
+                </div>
+                {% else %}
+                <div class="qa-answer skipped">Not answered</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="report-actions">
+        <a href="{% url 'upload_resume' %}" class="btn btn-primary">Start New Interview</a>
+        <button class="btn btn-secondary" onclick="window.print()">Print Report</button>
+    </div>
+</div>
+
+<script>
+    // Animate score ring
+    document.addEventListener('DOMContentLoaded', () => {
+        const score = {{ session.overall_score| floatformat: 0 |default: "0"
+    }};
+    const ringFill = document.getElementById('ringFill');
+    const circumference = 326.73;
+    const offset = circumference - (score / 100) * circumference;
+
+    setTimeout(() => {
+        ringFill.style.transition = 'stroke-dashoffset 1.5s ease-out';
+        ringFill.style.strokeDashoffset = offset;
+    }, 300);
+
+    // Animate skill bars
+    const skillBars = document.querySelectorAll('.skill-bar-fill');
+    setTimeout(() => {
+        skillBars.forEach(bar => {
+            bar.style.transition = 'width 1s ease-out';
+            bar.style.width = bar.dataset.width;
+        });
+    }, 500);
+    });
+</script>
+{% endblock %}
