@@ -36,18 +36,38 @@ def extract_skills(resume_text):
     Use Groq to extract technical skills from resume text.
     Returns a list of skill strings.
     """
-    prompt = f"""Analyze the following resume and extract ALL technical skills mentioned.
-Focus on:
-- Programming languages (Python, Java, JavaScript, etc.)
-- Frameworks and libraries (Django, React, Spring, etc.)
-- Databases (MySQL, MongoDB, PostgreSQL, etc.)
-- Tools and platforms (Docker, AWS, Git, etc.)
-- Technical concepts (REST API, Machine Learning, Data Structures, etc.)
+    prompt = f"""You are an expert AI technical interviewer with strong knowledge of software development, data science, system design, and modern technologies.
 
-Return ONLY a valid JSON array of strings. No explanation, no markdown, just the JSON array.
-Example: ["Python", "Django", "PostgreSQL", "Docker"]
+Your task is to:
+
+1. Carefully analyze the resume provided by the user.
+2. Extract ALL technical skills mentioned in the resume.
+
+Focus specifically on:
+- Programming languages (Python, Java, JavaScript, C++, etc.)
+- Frameworks and libraries (Django, React, Angular, Spring, TensorFlow, etc.)
+- Databases (MySQL, PostgreSQL, MongoDB, etc.)
+- Tools and platforms (Docker, AWS, Git, Kubernetes, etc.)
+- Technical concepts (REST APIs, Microservices, Machine Learning, Data Structures, OOP, etc.)
+
+Return ONLY a valid JSON array of strings.
+Do NOT include explanations.
+Do NOT include markdown.
+Do NOT include extra text.
+
+Example output:
+["Python", "Django", "PostgreSQL", "Docker"]
+
+After extracting the skills:
+- Start a structured technical interview.
+- Begin with a short introduction request.
+- Then ask questions step-by-step based on the extracted skills.
+- Move from basic to advanced questions.
+- Include practical, scenario-based, and problem-solving questions.
+- Continue the interview until the session is complete.
 
 Resume:
+---
 ---
 {resume_text}
 ---
