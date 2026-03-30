@@ -332,13 +332,18 @@
 
             if (data.status === 'ok') {
                 questionCard.style.display = 'none';
-                feedbackScore.textContent = data.score;
                 feedbackText.textContent = data.evaluation;
 
                 const score = data.score;
-                if (score >= 8) feedbackScoreCircle.className = 'feedback-score-circle score-high';
-                else if (score >= 5) feedbackScoreCircle.className = 'feedback-score-circle score-mid';
-                else feedbackScoreCircle.className = 'feedback-score-circle score-low';
+                if (data.is_last) {
+                    feedbackScore.textContent = score;
+                    feedbackScoreCircle.style.display = 'flex';
+                    if (score >= 8) feedbackScoreCircle.className = 'feedback-score-circle score-high';
+                    else if (score >= 5) feedbackScoreCircle.className = 'feedback-score-circle score-mid';
+                    else feedbackScoreCircle.className = 'feedback-score-circle score-low';
+                } else {
+                    feedbackScoreCircle.style.display = 'none';
+                }
 
                 if (data.is_last) {
                     nextBtnText.textContent = 'View Report →';
@@ -349,7 +354,11 @@
                 setTimeout(() => feedbackCard.classList.remove('fade-in'), 500);
 
                 // Speak the evaluation feedback
-                speakQuestion(`Score: ${data.score} out of 10. ${data.evaluation}`);
+                if (data.is_last) {
+                    speakQuestion(`Score: ${score} out of 10. ${data.evaluation}`);
+                } else {
+                    speakQuestion(data.evaluation);
+                }
             } else {
                 alert(data.message || 'Error submitting answer.');
             }
