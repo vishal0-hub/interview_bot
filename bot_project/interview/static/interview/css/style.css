@@ -861,6 +861,79 @@ body::before {
     margin-right: auto;
 }
 
+.voice-analysis {
+    text-align: left;
+    max-width: 520px;
+    margin: 0 auto 1.5rem;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+}
+
+.voice-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+}
+
+.voice-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.voice-item:last-of-type {
+    border-bottom: none;
+}
+
+.voice-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.voice-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.voice-badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.badge-high {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-medium {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-low {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.voice-note {
+    margin-top: 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
 /* Animations */
 .fade-in {
     animation: fadeIn 0.5s ease;
